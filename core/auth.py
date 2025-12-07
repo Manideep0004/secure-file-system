@@ -13,6 +13,11 @@ class AuthManager:
     def verify_password(self, password, password_hash):
         return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
     
+    def is_first_user(self):
+        """Check if this is the first user registration"""
+        all_users = self.db.get_all_users()
+        return len(all_users) == 0
+    
     def register_user(self, username, email, password, role='user'):
         if len(password) < 6:
             return False, "Password must be at least 6 characters"
@@ -20,12 +25,19 @@ class AuthManager:
         if not username or not email:
             return False, "Username and email are required"
         
+        # Auto-assign admin role to first user
+        if self.is_first_user():
+            role = 'admin'
+            message_suffix = " (First user - Auto-promoted to Admin!)"
+        else:
+            message_suffix = ""
+        
         password_hash = self.hash_password(password)
         user_id = self.db.create_user(username, email, password_hash, role)
         
         if user_id:
             self.db.create_log(user_id, 'User registered')
-            return True, "Registration successful"
+            return True, f"Registration successful{message_suffix}"
         else:
             return False, "Username or email already exists"
     
